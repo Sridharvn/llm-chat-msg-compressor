@@ -83,3 +83,29 @@ if (!matchesAuto) {
 } else {
     console.log('✅ Restoration Successful');
 }
+
+// 3. Test Token Validation
+console.log('\n--- Test 3: Token Validation ---');
+const smallData = { id: 1, name: "Short" };
+const optimizedSmall = optimize(smallData, { 
+    thresholdBytes: 0, 
+    validateTokenSavings: true 
+});
+
+if (JSON.stringify(optimizedSmall) === JSON.stringify(smallData)) {
+    console.log('✅ Correctly returned original data (compression would have increased tokens)');
+} else {
+    console.log('❌ Failed: Should have returned original data for small payload');
+}
+
+const largeData = generateLargeData(5);
+const optimizedLarge = optimize(largeData, { 
+    validateTokenSavings: true,
+    tokenizer: 'o200k_base' // Test with GPT-4o tokenizer
+});
+
+if (JSON.stringify(optimizedLarge) !== JSON.stringify(largeData)) {
+    console.log('✅ Correctly compressed large data with token validation');
+} else {
+    console.log('❌ Failed: Should have compressed large data');
+}

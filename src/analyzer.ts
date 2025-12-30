@@ -11,6 +11,11 @@ export interface AnalysisMetrics {
     estimatedSchemaSavings: number; // Bytes saved by SchemaSeparation
 }
 
+const isPlainObject = (obj: any): boolean => {
+    return obj !== null && typeof obj === 'object' && !Array.isArray(obj) && 
+           (Object.getPrototypeOf(obj) === Object.prototype || Object.getPrototypeOf(obj) === null);
+};
+
 export class Analyzer {
     static analyze(data: any): AnalysisMetrics {
         // Pre-flight check for primitives or very small objects
@@ -97,7 +102,7 @@ export class Analyzer {
                 for (let i = 0; i < obj.length; i++) {
                     traverse(obj[i], currentDepth + 1);
                 }
-            } else if (obj && typeof obj === 'object') {
+            } else if (isPlainObject(obj)) {
                 objectCount++;
                 totalBytes += 2; // {}
                 
@@ -114,13 +119,23 @@ export class Analyzer {
                     }
                 }
             } else {
-                // Primitive
+                // Primitive or non-plain object (Date, etc.)
                 if (typeof obj === 'string') {
                     totalBytes += Buffer.byteLength(obj, 'utf8') + 2; // quotes
                 } else if (typeof obj === 'number' || typeof obj === 'boolean') {
                     totalBytes += String(obj).length;
+                } else if (obj instanceof Date) {
+                    totalBytes += obj.toISOString().length + 2; // quotes
                 } else if (obj === null) {
                     totalBytes += 4;
+                } else {
+                    // Fallback for other types that might be stringified
+                    try {
+                        const s = JSON.stringify(obj);
+                        if (s) totalBytes += Buffer.byteLength(s, 'utf8');
+                    } catch {
+                        // Ignore if not stringifiable
+                    }
                 }
             }
         };
