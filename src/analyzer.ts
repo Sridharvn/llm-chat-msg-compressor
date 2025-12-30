@@ -13,9 +13,20 @@ export interface AnalysisMetrics {
 
 export class Analyzer {
     static analyze(data: any): AnalysisMetrics {
-        const json = JSON.stringify(data);
-        const totalBytes = Buffer.byteLength(json, 'utf8');
+        // Pre-flight check for primitives or very small objects
+        if (data === null || typeof data !== 'object') {
+            return {
+                totalBytes: data === undefined ? 0 : Buffer.byteLength(JSON.stringify(data), 'utf8'),
+                arrayDensity: 0,
+                maxExampleArrayLength: 0,
+                nestingDepth: 0,
+                repeatedKeysEstimate: 0,
+                estimatedAbbrevSavings: 0,
+                estimatedSchemaSavings: 0
+            };
+        }
 
+        let totalBytes = 0;
         let arrayCount = 0;
         let objectCount = 0;
         let maxArrLen = 0;
@@ -31,21 +42,41 @@ export class Analyzer {
             if (arr.length < 3 || typeof arr[0] !== 'object' || arr[0] === null) return 0;
 
             // Check consistency of first few items
-            const keys = Object.keys(arr[0]);
-            const keyStr = keys.sort().join(',');
-            const sample = arr.slice(0, 5); // Check first 5 for speed
+            const firstItem = arr[0];
+            const keys = Object.keys(firstItem);
+            const keyCount = keys.length;
+            if (keyCount === 0) return 0;
 
-            const isConsistent = sample.every(item =>
-                item && typeof item === 'object' && !Array.isArray(item) &&
-                Object.keys(item).sort().join(',') === keyStr
-            );
+            const sampleSize = Math.min(arr.length, 5);
+            let isConsistent = true;
+
+            for (let i = 1; i < sampleSize; i++) {
+                const item = arr[i];
+                if (!item || typeof item !== 'object' || Array.isArray(item)) {
+                    isConsistent = false;
+                    break;
+                }
+                const itemKeys = Object.keys(item);
+                if (itemKeys.length !== keyCount) {
+                    isConsistent = false;
+                    break;
+                }
+                // Check if all keys from first item exist in this item
+                for (const key of keys) {
+                    if (!(key in item)) {
+                        isConsistent = false;
+                        break;
+                    }
+                }
+                if (!isConsistent) break;
+            }
 
             if (isConsistent) {
-                // Savings = (Items - 1) * (Sum of key lengths + overhead)
-                // Roughly: For N items, we write keys once instead of N times.
-                // Savings ~= (N - 1) * (total_key_chars + (keys.length * 3 chars for quotes/colon))
-                const keysLen = keys.reduce((sum, k) => sum + k.length, 0);
-                const perItemOverhead = keysLen + (keys.length * 2); // quotes + colon approx
+                let keysLen = 0;
+                for (const key of keys) {
+                    keysLen += key.length;
+                }
+                const perItemOverhead = keysLen + (keyCount * 2); // quotes + colon approx
                 return (arr.length - 1) * perItemOverhead;
             }
             return 0;
@@ -57,18 +88,40 @@ export class Analyzer {
             if (Array.isArray(obj)) {
                 arrayCount++;
                 maxArrLen = Math.max(maxArrLen, obj.length);
+                totalBytes += 2; // []
+                if (obj.length > 1) totalBytes += obj.length - 1; // commas
 
                 // Check if this specific array offers schema savings
                 schemaSavings += calculateArraySchemaSavings(obj);
 
-                obj.forEach(i => traverse(i, currentDepth + 1));
+                for (let i = 0; i < obj.length; i++) {
+                    traverse(obj[i], currentDepth + 1);
+                }
             } else if (obj && typeof obj === 'object') {
                 objectCount++;
-                const keys = Object.keys(obj);
-                totalKeysCount += keys.length;
-                totalKeyLength += keys.reduce((sum, k) => sum + k.length, 0);
-
-                Object.values(obj).forEach(v => traverse(v, currentDepth + 1));
+                totalBytes += 2; // {}
+                
+                let first = true;
+                for (const key in obj) {
+                    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                        if (!first) totalBytes += 1; // comma
+                        first = false;
+                        
+                        totalKeysCount++;
+                        totalKeyLength += key.length;
+                        totalBytes += key.length + 3; // "key":
+                        traverse(obj[key], currentDepth + 1);
+                    }
+                }
+            } else {
+                // Primitive
+                if (typeof obj === 'string') {
+                    totalBytes += Buffer.byteLength(obj, 'utf8') + 2; // quotes
+                } else if (typeof obj === 'number' || typeof obj === 'boolean') {
+                    totalBytes += String(obj).length;
+                } else if (obj === null) {
+                    totalBytes += 4;
+                }
             }
         };
 

@@ -8,10 +8,15 @@ export interface OptimizerOptions {
 }
 
 export class Optimizer {
+    private schemaStrat = new SchemaDataSeparationStrategy();
+    private abbrevStrat = new AbbreviatedKeysStrategy();
+    private ultraStratSafe = new UltraCompactStrategy({ unsafe: false });
+    private ultraStratUnsafe = new UltraCompactStrategy({ unsafe: true });
+
     private strategies: CompressionStrategy[] = [
-        new SchemaDataSeparationStrategy(),
-        new UltraCompactStrategy(),
-        new AbbreviatedKeysStrategy()
+        this.schemaStrat,
+        this.ultraStratSafe,
+        this.abbrevStrat
     ];
 
     /**
@@ -28,36 +33,27 @@ export class Optimizer {
 
         // 1. If too small, just minify
         if (metrics.totalBytes < thresholdBytes) {
-            console.log(`[Optimizer] Selected: minify (Size ${metrics.totalBytes} < ${thresholdBytes})`);
             return minify.compress(data);
         }
 
         // 2. Smart Strategy Selection
         // Compare estimated savings to pick the winner.
 
-        console.log(`[Optimizer] Analysis: SchemaSavings=${Math.round(metrics.estimatedSchemaSavings)} bytes, AbbrevSavings=${Math.round(metrics.estimatedAbbrevSavings)} bytes`);
-
         // Prefer SchemaSeparation if it saves MORE than AbbreviatedKeys (with a slight buffer for safety)
         // Schema Separation is "riskier" structure-wise (arrays vs maps), so we want it to be worth it.
         if (metrics.estimatedSchemaSavings > metrics.estimatedAbbrevSavings * 1.1) {
-            console.log('[Optimizer] Selected: schema-data-separation (Higher savings)');
-            const schemaStrat = new SchemaDataSeparationStrategy();
-            return schemaStrat.compress(data);
+            return this.schemaStrat.compress(data);
         }
 
         // 3. Fallback to UltraCompact if aggressive is set
         if (aggressive) {
-            console.log('[Optimizer] Selected: ultra-compact');
-            const ultra = new UltraCompactStrategy({ unsafe });
-            return ultra.compress(data);
+            return unsafe ? this.ultraStratUnsafe.compress(data) : this.ultraStratSafe.compress(data);
         }
 
         // 4. Default: Abbreviated Keys
         // If Schema Separation isn't significantly better, we default to this.
         // It handles mixed/nested payloads better and is "safer" structure-wise.
-        console.log('[Optimizer] Selected: abbreviated-keys');
-        const abbr = new AbbreviatedKeysStrategy();
-        return abbr.compress(data);
+        return this.abbrevStrat.compress(data);
     }
 
     /**
@@ -65,6 +61,9 @@ export class Optimizer {
      */
     getStrategy(name: string): CompressionStrategy | undefined {
         if (name === 'minify') return minify;
-        return this.strategies.find(s => s.name === name);
+        if (name === 'schema-data-separation') return this.schemaStrat;
+        if (name === 'abbreviated-keys') return this.abbrevStrat;
+        if (name === 'ultra-compact') return this.ultraStratSafe; // Default to safe
+        return undefined;
     }
 }

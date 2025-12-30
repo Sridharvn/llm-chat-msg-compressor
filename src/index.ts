@@ -30,8 +30,7 @@ export function restore(data: any): any {
     }
 
     // Detect Schema Separation format anywhere in the structure
-    // We use a string check for existence of keys to decide if we should traverse.
-    if (JSON.stringify(data).includes('"$s"') && JSON.stringify(data).includes('"$d"')) {
+    if (hasSchemaMarker(data)) {
         const strat = new SchemaDataSeparationStrategy();
         return strat.decompress(data);
     }
@@ -40,10 +39,21 @@ export function restore(data: any): any {
     return data;
 }
 
-function checkNestedSchema(obj: any): boolean {
-    // Simple deep check (expensive, but safe for examples)
-    // In prod, rely on known structure
-    return JSON.stringify(obj).includes('"$s":') && JSON.stringify(obj).includes('"$d":');
+function hasSchemaMarker(obj: any): boolean {
+    if (!obj || typeof obj !== 'object') return false;
+    if (Array.isArray(obj)) {
+        for (let i = 0; i < obj.length; i++) {
+            if (hasSchemaMarker(obj[i])) return true;
+        }
+        return false;
+    }
+    if ('$s' in obj && '$d' in obj) return true;
+    for (const k in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, k)) {
+            if (hasSchemaMarker(obj[k])) return true;
+        }
+    }
+    return false;
 }
 
 export { Optimizer } from './optimizer';
