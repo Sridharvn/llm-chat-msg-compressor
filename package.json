@@ -21,7 +21,13 @@
         "json",
         "compression",
         "optimization",
-        "tokens"
+        "tokens",
+        "chat",
+        "gpt",
+        "api",
+        "completions",
+        "messages",
+        "tokenization"
     ],
     "author": "Your Name <your.email@example.com>",
     "license": "MIT",
