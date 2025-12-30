@@ -33,18 +33,32 @@ function restore(data) {
         return strat.decompress(data);
     }
     // Detect Schema Separation format anywhere in the structure
-    // We use a string check for existence of keys to decide if we should traverse.
-    if (JSON.stringify(data).includes('"$s"') && JSON.stringify(data).includes('"$d"')) {
+    if (hasSchemaMarker(data)) {
         const strat = new strategies_1.SchemaDataSeparationStrategy();
         return strat.decompress(data);
     }
     // Default: return as is
     return data;
 }
-function checkNestedSchema(obj) {
-    // Simple deep check (expensive, but safe for examples)
-    // In prod, rely on known structure
-    return JSON.stringify(obj).includes('"$s":') && JSON.stringify(obj).includes('"$d":');
+function hasSchemaMarker(obj) {
+    if (!obj || typeof obj !== 'object')
+        return false;
+    if (Array.isArray(obj)) {
+        for (let i = 0; i < obj.length; i++) {
+            if (hasSchemaMarker(obj[i]))
+                return true;
+        }
+        return false;
+    }
+    if ('$s' in obj && '$d' in obj)
+        return true;
+    for (const k in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, k)) {
+            if (hasSchemaMarker(obj[k]))
+                return true;
+        }
+    }
+    return false;
 }
 var optimizer_2 = require("./optimizer");
 Object.defineProperty(exports, "Optimizer", { enumerable: true, get: function () { return optimizer_2.Optimizer; } });

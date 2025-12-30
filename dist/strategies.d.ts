@@ -7,6 +7,10 @@ export interface CompressionStrategy {
     decompress(data: any): any;
 }
 /**
+ * Shared utility for generating short keys (a, b, ... z, aa, ab ...)
+ */
+export declare const generateShortKey: (index: number) => string;
+/**
  * Strategy 1: Minify (Baseline)
  * Just standard JSON serialization (handled by default JSON.stringify)
  * We include it for completeness in the strategy pattern

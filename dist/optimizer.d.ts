@@ -5,6 +5,10 @@ export interface OptimizerOptions {
     unsafe?: boolean;
 }
 export declare class Optimizer {
+    private schemaStrat;
+    private abbrevStrat;
+    private ultraStratSafe;
+    private ultraStratUnsafe;
     private strategies;
     /**
      * Automatically selects and applies the best compression strategy

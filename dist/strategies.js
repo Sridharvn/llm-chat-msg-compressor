@@ -1,6 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UltraCompactStrategy = exports.SchemaDataSeparationStrategy = exports.AbbreviatedKeysStrategy = exports.minify = void 0;
+exports.UltraCompactStrategy = exports.SchemaDataSeparationStrategy = exports.AbbreviatedKeysStrategy = exports.minify = exports.generateShortKey = void 0;
+/**
+ * Shared utility for generating short keys (a, b, ... z, aa, ab ...)
+ */
+const generateShortKey = (index) => {
+    let shortKey = '';
+    let temp = index;
+    do {
+        shortKey = String.fromCharCode(97 + (temp % 26)) + shortKey;
+        temp = Math.floor(temp / 26) - 1;
+    } while (temp >= 0);
+    return shortKey;
+};
+exports.generateShortKey = generateShortKey;
 /**
  * Strategy 1: Minify (Baseline)
  * Just standard JSON serialization (handled by default JSON.stringify)
@@ -22,30 +35,30 @@ class AbbreviatedKeysStrategy {
         this.name = 'abbreviated-keys';
     }
     compress(data) {
-        // Implementation that returns { m: map, d: data }
         const keyMap = new Map();
-        const reverseMap = new Map();
         let counter = 0;
         const getShortKey = (key) => {
-            if (!keyMap.has(key)) {
-                let shortKey = '';
-                let temp = counter++;
-                do {
-                    shortKey = String.fromCharCode(97 + (temp % 26)) + shortKey;
-                    temp = Math.floor(temp / 26) - 1;
-                } while (temp >= 0);
+            let shortKey = keyMap.get(key);
+            if (shortKey === undefined) {
+                shortKey = (0, exports.generateShortKey)(counter++);
                 keyMap.set(key, shortKey);
-                reverseMap.set(shortKey, key);
             }
-            return keyMap.get(key);
+            return shortKey;
         };
         const traverse = (obj) => {
-            if (Array.isArray(obj))
-                return obj.map(traverse);
+            if (Array.isArray(obj)) {
+                const newArr = new Array(obj.length);
+                for (let i = 0; i < obj.length; i++) {
+                    newArr[i] = traverse(obj[i]);
+                }
+                return newArr;
+            }
             if (obj && typeof obj === 'object') {
                 const newObj = {};
                 for (const k in obj) {
-                    newObj[getShortKey(k)] = traverse(obj[k]);
+                    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+                        newObj[getShortKey(k)] = traverse(obj[k]);
+                    }
                 }
                 return newObj;
             }
@@ -61,17 +74,26 @@ class AbbreviatedKeysStrategy {
         if (!pkg || !pkg.m || pkg.d === undefined)
             return pkg;
         const reverseMap = new Map();
-        for (const [k, v] of Object.entries(pkg.m)) {
-            reverseMap.set(v, k);
+        for (const k in pkg.m) {
+            if (Object.prototype.hasOwnProperty.call(pkg.m, k)) {
+                reverseMap.set(pkg.m[k], k);
+            }
         }
         const traverse = (obj) => {
-            if (Array.isArray(obj))
-                return obj.map(traverse);
+            if (Array.isArray(obj)) {
+                const newArr = new Array(obj.length);
+                for (let i = 0; i < obj.length; i++) {
+                    newArr[i] = traverse(obj[i]);
+                }
+                return newArr;
+            }
             if (obj && typeof obj === 'object') {
                 const newObj = {};
                 for (const k in obj) {
-                    const originalKey = reverseMap.get(k) || k;
-                    newObj[originalKey] = traverse(obj[k]);
+                    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+                        const originalKey = reverseMap.get(k) || k;
+                        newObj[originalKey] = traverse(obj[k]);
+                    }
                 }
                 return newObj;
             }
@@ -94,11 +116,30 @@ class SchemaDataSeparationStrategy {
             if (Array.isArray(obj)) {
                 // Check if it's an array of objects
                 if (obj.length > 0 && typeof obj[0] === 'object' && obj[0] !== null && !Array.isArray(obj[0])) {
-                    const keys = Object.keys(obj[0]);
-                    const allMatch = obj.every(item => typeof item === 'object' &&
-                        item !== null &&
-                        !Array.isArray(item) &&
-                        JSON.stringify(Object.keys(item).sort()) === JSON.stringify(keys.sort()));
+                    const firstItem = obj[0];
+                    const keys = Object.keys(firstItem);
+                    const keyCount = keys.length;
+                    let allMatch = true;
+                    for (let i = 1; i < obj.length; i++) {
+                        const item = obj[i];
+                        if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+                            allMatch = false;
+                            break;
+                        }
+                        const itemKeys = Object.keys(item);
+                        if (itemKeys.length !== keyCount) {
+                            allMatch = false;
+                            break;
+                        }
+                        for (const key of keys) {
+                            if (!(key in item)) {
+                                allMatch = false;
+                                break;
+                            }
+                        }
+                        if (!allMatch)
+                            break;
+                    }
                     if (allMatch) {
                         return {
                             $s: keys, // Schema
@@ -106,12 +147,18 @@ class SchemaDataSeparationStrategy {
                         };
                     }
                 }
-                return obj.map(traverse);
+                const newArr = new Array(obj.length);
+                for (let i = 0; i < obj.length; i++) {
+                    newArr[i] = traverse(obj[i]);
+                }
+                return newArr;
             }
             if (obj && typeof obj === 'object') {
                 const newObj = {};
                 for (const k in obj) {
-                    newObj[k] = traverse(obj[k]);
+                    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+                        newObj[k] = traverse(obj[k]);
+                    }
                 }
                 return newObj;
             }
@@ -124,19 +171,30 @@ class SchemaDataSeparationStrategy {
             if (obj && typeof obj === 'object') {
                 if (obj.$s && obj.$d && Array.isArray(obj.$s) && Array.isArray(obj.$d)) {
                     const keys = obj.$s;
-                    return obj.$d.map((values) => {
+                    const dataArr = obj.$d;
+                    const result = new Array(dataArr.length);
+                    for (let i = 0; i < dataArr.length; i++) {
+                        const values = dataArr[i];
                         const item = {};
-                        keys.forEach((k, i) => {
-                            item[k] = traverse(values[i]);
-                        });
-                        return item;
-                    });
+                        for (let j = 0; j < keys.length; j++) {
+                            item[keys[j]] = traverse(values[j]);
+                        }
+                        result[i] = item;
+                    }
+                    return result;
                 }
-                if (Array.isArray(obj))
-                    return obj.map(traverse);
+                if (Array.isArray(obj)) {
+                    const newArr = new Array(obj.length);
+                    for (let i = 0; i < obj.length; i++) {
+                        newArr[i] = traverse(obj[i]);
+                    }
+                    return newArr;
+                }
                 const newObj = {};
                 for (const k in obj) {
-                    newObj[k] = traverse(obj[k]);
+                    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+                        newObj[k] = traverse(obj[k]);
+                    }
                 }
                 return newObj;
             }
@@ -159,16 +217,12 @@ class UltraCompactStrategy {
         const keyMap = new Map();
         let counter = 0;
         const getShortKey = (key) => {
-            if (!keyMap.has(key)) {
-                let shortKey = '';
-                let temp = counter++;
-                do {
-                    shortKey = String.fromCharCode(97 + (temp % 26)) + shortKey;
-                    temp = Math.floor(temp / 26) - 1;
-                } while (temp >= 0);
+            let shortKey = keyMap.get(key);
+            if (shortKey === undefined) {
+                shortKey = (0, exports.generateShortKey)(counter++);
                 keyMap.set(key, shortKey);
             }
-            return keyMap.get(key);
+            return shortKey;
         };
         const traverse = (obj) => {
             // Bool optimization: Only if unsafe mode is enabled
@@ -178,12 +232,19 @@ class UltraCompactStrategy {
                 if (obj === false)
                     return 0;
             }
-            if (Array.isArray(obj))
-                return obj.map(traverse);
+            if (Array.isArray(obj)) {
+                const newArr = new Array(obj.length);
+                for (let i = 0; i < obj.length; i++) {
+                    newArr[i] = traverse(obj[i]);
+                }
+                return newArr;
+            }
             if (obj && typeof obj === 'object') {
                 const newObj = {};
                 for (const k in obj) {
-                    newObj[getShortKey(k)] = traverse(obj[k]);
+                    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+                        newObj[getShortKey(k)] = traverse(obj[k]);
+                    }
                 }
                 return newObj;
             }
@@ -199,32 +260,26 @@ class UltraCompactStrategy {
         if (!pkg || !pkg.m || pkg.d === undefined)
             return pkg;
         const reverseMap = new Map();
-        for (const [k, v] of Object.entries(pkg.m)) {
-            reverseMap.set(v, k);
+        for (const k in pkg.m) {
+            if (Object.prototype.hasOwnProperty.call(pkg.m, k)) {
+                reverseMap.set(pkg.m[k], k);
+            }
         }
         const traverse = (obj) => {
-            // Removed automatic 1->true conversion to avoid corrupting numbers
-            // if (obj === 1) return true; 
-            // NOTE: Ultra Compact assumes usage where boolean restoration is preferred. 
-            // Strictly speaking, we lose type info between 1 and true if we just blindly map.
-            // For LLM context, usually 1/0 is fine. But for exact restoration, this is lossy for numbers.
-            // Let's make it smarter: logic handled by downstream consumers or accept fuzzy types.
-            // For now, let's NOT automatically convert 1->true to keep it safer, 
-            // unless we store type info effectively. 
-            // Actually, for LLM optimization, sending 1/0 is enough. 
-            // If we want exact restoration, we need a schema.
-            // Let's stick to key restoration for now, and leave values as is (1/0) or maybe keep booleans as is if size diff is minimal? 
-            // "true" is 4 bytes, "1" is 1 byte. 
-            // If we want to support full roundtrip without schema, we might skip bool optimization OR live with the type change.
-            // Let's keep 1/0 and NOT restore to boolean automatically to avoid corrupting actual numbers. 
-            // The user will receive 1/0 instead of true/false.
-            if (Array.isArray(obj))
-                return obj.map(traverse);
+            if (Array.isArray(obj)) {
+                const newArr = new Array(obj.length);
+                for (let i = 0; i < obj.length; i++) {
+                    newArr[i] = traverse(obj[i]);
+                }
+                return newArr;
+            }
             if (obj && typeof obj === 'object') {
                 const newObj = {};
                 for (const k in obj) {
-                    const originalKey = reverseMap.get(k) || k;
-                    newObj[originalKey] = traverse(obj[k]);
+                    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+                        const originalKey = reverseMap.get(k) || k;
+                        newObj[originalKey] = traverse(obj[k]);
+                    }
                 }
                 return newObj;
             }
