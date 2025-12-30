@@ -9,6 +9,7 @@ Intelligent JSON optimizer for LLM APIs. Automatically reduces token usage by se
 ## Features
 
 - **🧠 Intelligent**: Analyzes payload structure to pick the best strategy
+- **⚡ High Performance**: Optimized for low-latency with single-pass analysis and zero production dependencies
 - **📉 Efficient**: Saves 10-40% input tokens on average
 - **✅ Safe**: Full restoration of original data (semantic equality)
 - **🔌 Easy**: Simple `optimize()` and `restore()` API
@@ -70,6 +71,14 @@ optimize(data, {
 By default, the library is **Safe-by-Default**. It preserves all data types (including booleans), ensuring that downstream code (e.g., in your backend or strictly typed clients) works without modification.
 
 If you need maximum compression and your LLM can handle `1`/`0` instead of `true`/`false`, you can enable `unsafe: true`.
+
+## Performance
+
+The library is designed for high-throughput environments:
+
+- **Zero-Stringify Analysis**: Estimates payload size during traversal to avoid memory spikes.
+- **Lazy Detection**: Decompression auto-detects strategies using targeted marker searches instead of full-string scans.
+- **Memory Efficient**: Uses optimized loops and reuses strategy instances to minimize garbage collection.
 
 ## Contributing
 
