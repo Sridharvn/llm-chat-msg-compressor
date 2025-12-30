@@ -1,0 +1,16 @@
+import { CompressionStrategy } from './strategies';
+export interface OptimizerOptions {
+    aggressive?: boolean;
+    thresholdBytes?: number;
+}
+export declare class Optimizer {
+    private strategies;
+    /**
+     * Automatically selects and applies the best compression strategy
+     */
+    optimize(data: any, options?: OptimizerOptions): any;
+    /**
+     * Helper to get a specific strategy
+     */
+    getStrategy(name: string): CompressionStrategy | undefined;
+}
