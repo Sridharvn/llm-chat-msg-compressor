@@ -2,6 +2,7 @@ import { CompressionStrategy } from './strategies';
 export interface OptimizerOptions {
     aggressive?: boolean;
     thresholdBytes?: number;
+    unsafe?: boolean;
 }
 export declare class Optimizer {
     private strategies;

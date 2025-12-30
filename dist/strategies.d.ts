@@ -37,7 +37,11 @@ export declare class SchemaDataSeparationStrategy implements CompressionStrategy
  * Aggressive compression. Replaces boolean values and maps keys to minimal shortest strings.
  */
 export declare class UltraCompactStrategy implements CompressionStrategy {
+    private options;
     name: string;
+    constructor(options?: {
+        unsafe?: boolean;
+    });
     compress(data: any): any;
     decompress(pkg: any): any;
 }

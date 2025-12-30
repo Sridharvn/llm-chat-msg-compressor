@@ -29,11 +29,11 @@
         "messages",
         "tokenization"
     ],
-    "author": "Your Name <your.email@example.com>",
+    "author": "Sridharvn",
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/yourusername/llm-compressor.git"
+        "url": "git+https://github.com/Sridharvn/llm-chat-msg-compressor.git"
     },
     "devDependencies": {
         "@types/jest": "^30.0.0",

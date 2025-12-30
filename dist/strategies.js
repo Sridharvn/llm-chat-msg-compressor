@@ -58,7 +58,7 @@ class AbbreviatedKeysStrategy {
         };
     }
     decompress(pkg) {
-        if (!pkg || !pkg.m || !pkg.d)
+        if (!pkg || !pkg.m || pkg.d === undefined)
             return pkg;
         const reverseMap = new Map();
         for (const [k, v] of Object.entries(pkg.m)) {
@@ -151,7 +151,8 @@ exports.SchemaDataSeparationStrategy = SchemaDataSeparationStrategy;
  * Aggressive compression. Replaces boolean values and maps keys to minimal shortest strings.
  */
 class UltraCompactStrategy {
-    constructor() {
+    constructor(options = {}) {
+        this.options = options;
         this.name = 'ultra-compact';
     }
     compress(data) {
@@ -170,11 +171,13 @@ class UltraCompactStrategy {
             return keyMap.get(key);
         };
         const traverse = (obj) => {
-            // Bool optimization
-            if (obj === true)
-                return 1;
-            if (obj === false)
-                return 0;
+            // Bool optimization: Only if unsafe mode is enabled
+            if (this.options.unsafe) {
+                if (obj === true)
+                    return 1;
+                if (obj === false)
+                    return 0;
+            }
             if (Array.isArray(obj))
                 return obj.map(traverse);
             if (obj && typeof obj === 'object') {

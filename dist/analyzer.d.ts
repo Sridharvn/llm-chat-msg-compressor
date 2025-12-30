@@ -7,11 +7,13 @@ export interface AnalysisMetrics {
     maxExampleArrayLength: number;
     nestingDepth: number;
     repeatedKeysEstimate: number;
+    estimatedAbbrevSavings: number;
+    estimatedSchemaSavings: number;
 }
 export declare class Analyzer {
     static analyze(data: any): AnalysisMetrics;
     /**
-     * More specific check for Schema Separation suitability
+     * @deprecated Use analyze() scores instead. Kept for backward compatibility if needed internally.
      */
     static isSchemaSeparationSuitable(data: any): boolean;
 }
