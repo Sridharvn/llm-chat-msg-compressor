@@ -28,9 +28,9 @@ export class Optimizer {
     optimize(data: any, options: OptimizerOptions = {}) {
         const {
             aggressive = false,
-            thresholdBytes = 500, // Increased default: small payloads often grow with key-map overhead
+            thresholdBytes = 1024, // Increased default: small payloads often grow with key-map overhead
             unsafe = false,
-            validateTokenSavings = false,
+            validateTokenSavings = true,
             tokenizer = 'cl100k_base'
         } = options;
 

@@ -17,7 +17,7 @@ describe('Optimizer Selection Logic', () => {
         // Analyze and optimize
         // The console logs will help debug ensuring the right choice is made
         // We can inspect the returned object structure to know the strategy
-        const result = optimizer.optimize(listData);
+        const result = optimizer.optimize(listData, { thresholdBytes: 0, validateTokenSavings: false });
 
         // Schema Separation produces $s and $d keys
         expect(result).toHaveProperty('$s');
@@ -67,7 +67,7 @@ describe('Optimizer Selection Logic', () => {
             }
         };
 
-        const result = optimizer.optimize(mixedData);
+        const result = optimizer.optimize(mixedData, { thresholdBytes: 0, validateTokenSavings: false });
 
         // Should prefer Abbreviated Keys because the list savings are tiny compared to the nested object key savings
         expect(result).toHaveProperty('m'); // Map indicates Abbreviated Keys or UltraCompact

@@ -61,4 +61,18 @@ describe('Token Validation', () => {
 
         expect(result).toBeDefined();
     });
+
+    it('should skip compression for small JSONs by default (regression test)', () => {
+        const smallData = {
+            id: 1,
+            name: "Short",
+            active: true
+        };
+
+        // With default thresholdBytes=1024 and validateTokenSavings=true, 
+        // this should return the original data.
+        const result = optimize(smallData);
+
+        expect(result).toEqual(smallData);
+    });
 });

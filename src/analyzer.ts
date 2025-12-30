@@ -82,7 +82,8 @@ export class Analyzer {
                     keysLen += key.length;
                 }
                 const perItemOverhead = keysLen + (keyCount * 2); // quotes + colon approx
-                return (arr.length - 1) * perItemOverhead;
+                const schemaArrayOverhead = keysLen + (keyCount * 3) + 10; // keys + quotes/commas + "$s":[]
+                return Math.max(0, ((arr.length - 1) * perItemOverhead) - schemaArrayOverhead);
             }
             return 0;
         };
@@ -156,7 +157,11 @@ export class Analyzer {
         const estimatedMapOverhead = (totalKeysCount * 0.2) * (avgKeyLen + 3);
 
         const rawAbbrevSavings = totalKeysCount * (avgKeyLen - estimatedShortKeyLen);
-        const estimatedAbbrevSavings = Math.max(0, rawAbbrevSavings - estimatedMapOverhead);
+        const abbrevMetadataTax = 40; // { m: {}, d: } overhead
+        const estimatedAbbrevSavings = Math.max(0, rawAbbrevSavings - estimatedMapOverhead - abbrevMetadataTax);
+
+        const schemaMetadataTax = 30; // { $s: [], $d: [] } overhead
+        const finalSchemaSavings = Math.max(0, schemaSavings - schemaMetadataTax);
 
         return {
             totalBytes,
@@ -165,7 +170,7 @@ export class Analyzer {
             nestingDepth: depth,
             repeatedKeysEstimate: 0,
             estimatedAbbrevSavings,
-            estimatedSchemaSavings: schemaSavings
+            estimatedSchemaSavings: finalSchemaSavings
         };
     }
 
