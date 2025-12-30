@@ -15,6 +15,13 @@ const generateShortKey = (index) => {
 };
 exports.generateShortKey = generateShortKey;
 /**
+ * Helper to check if value is a plain object
+ */
+const isPlainObject = (obj) => {
+    return obj !== null && typeof obj === 'object' && !Array.isArray(obj) &&
+        (Object.getPrototypeOf(obj) === Object.prototype || Object.getPrototypeOf(obj) === null);
+};
+/**
  * Strategy 1: Minify (Baseline)
  * Just standard JSON serialization (handled by default JSON.stringify)
  * We include it for completeness in the strategy pattern
@@ -53,7 +60,7 @@ class AbbreviatedKeysStrategy {
                 }
                 return newArr;
             }
-            if (obj && typeof obj === 'object') {
+            if (isPlainObject(obj)) {
                 const newObj = {};
                 for (const k in obj) {
                     if (Object.prototype.hasOwnProperty.call(obj, k)) {
@@ -87,7 +94,7 @@ class AbbreviatedKeysStrategy {
                 }
                 return newArr;
             }
-            if (obj && typeof obj === 'object') {
+            if (isPlainObject(obj)) {
                 const newObj = {};
                 for (const k in obj) {
                     if (Object.prototype.hasOwnProperty.call(obj, k)) {
@@ -153,7 +160,7 @@ class SchemaDataSeparationStrategy {
                 }
                 return newArr;
             }
-            if (obj && typeof obj === 'object') {
+            if (isPlainObject(obj)) {
                 const newObj = {};
                 for (const k in obj) {
                     if (Object.prototype.hasOwnProperty.call(obj, k)) {
@@ -190,13 +197,15 @@ class SchemaDataSeparationStrategy {
                     }
                     return newArr;
                 }
-                const newObj = {};
-                for (const k in obj) {
-                    if (Object.prototype.hasOwnProperty.call(obj, k)) {
-                        newObj[k] = traverse(obj[k]);
+                if (isPlainObject(obj)) {
+                    const newObj = {};
+                    for (const k in obj) {
+                        if (Object.prototype.hasOwnProperty.call(obj, k)) {
+                            newObj[k] = traverse(obj[k]);
+                        }
                     }
+                    return newObj;
                 }
-                return newObj;
             }
             return obj;
         };
@@ -239,7 +248,7 @@ class UltraCompactStrategy {
                 }
                 return newArr;
             }
-            if (obj && typeof obj === 'object') {
+            if (isPlainObject(obj)) {
                 const newObj = {};
                 for (const k in obj) {
                     if (Object.prototype.hasOwnProperty.call(obj, k)) {
@@ -273,7 +282,7 @@ class UltraCompactStrategy {
                 }
                 return newArr;
             }
-            if (obj && typeof obj === 'object') {
+            if (isPlainObject(obj)) {
                 const newObj = {};
                 for (const k in obj) {
                     if (Object.prototype.hasOwnProperty.call(obj, k)) {

@@ -3,6 +3,8 @@ export interface OptimizerOptions {
     aggressive?: boolean;
     thresholdBytes?: number;
     unsafe?: boolean;
+    validateTokenSavings?: boolean;
+    tokenizer?: string | ((text: string) => number);
 }
 export declare class Optimizer {
     private schemaStrat;

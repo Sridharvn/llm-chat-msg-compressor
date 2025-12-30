@@ -1,6 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Analyzer = void 0;
+const isPlainObject = (obj) => {
+    return obj !== null && typeof obj === 'object' && !Array.isArray(obj) &&
+        (Object.getPrototypeOf(obj) === Object.prototype || Object.getPrototypeOf(obj) === null);
+};
 class Analyzer {
     static analyze(data) {
         // Pre-flight check for primitives or very small objects
@@ -81,7 +85,7 @@ class Analyzer {
                     traverse(obj[i], currentDepth + 1);
                 }
             }
-            else if (obj && typeof obj === 'object') {
+            else if (isPlainObject(obj)) {
                 objectCount++;
                 totalBytes += 2; // {}
                 let first = true;
@@ -98,15 +102,29 @@ class Analyzer {
                 }
             }
             else {
-                // Primitive
+                // Primitive or non-plain object (Date, etc.)
                 if (typeof obj === 'string') {
                     totalBytes += Buffer.byteLength(obj, 'utf8') + 2; // quotes
                 }
                 else if (typeof obj === 'number' || typeof obj === 'boolean') {
                     totalBytes += String(obj).length;
                 }
+                else if (obj instanceof Date) {
+                    totalBytes += obj.toISOString().length + 2; // quotes
+                }
                 else if (obj === null) {
                     totalBytes += 4;
+                }
+                else {
+                    // Fallback for other types that might be stringified
+                    try {
+                        const s = JSON.stringify(obj);
+                        if (s)
+                            totalBytes += Buffer.byteLength(s, 'utf8');
+                    }
+                    catch {
+                        // Ignore if not stringifiable
+                    }
                 }
             }
         };
