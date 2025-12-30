@@ -20,8 +20,8 @@ class Optimizer {
      * Automatically selects and applies the best compression strategy
      */
     optimize(data, options = {}) {
-        const { aggressive = false, thresholdBytes = 500, // Increased default: small payloads often grow with key-map overhead
-        unsafe = false, validateTokenSavings = false, tokenizer = 'cl100k_base' } = options;
+        const { aggressive = false, thresholdBytes = 1024, // Increased default: small payloads often grow with key-map overhead
+        unsafe = false, validateTokenSavings = true, tokenizer = 'cl100k_base' } = options;
         const metrics = analyzer_1.Analyzer.analyze(data);
         // Helper to count tokens
         const countTokens = (val) => {
