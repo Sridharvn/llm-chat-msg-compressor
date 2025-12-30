@@ -30,7 +30,7 @@ class Analyzer {
         let schemaSavings = 0;
         // Helper to check schema suitability for a single array
         const calculateArraySchemaSavings = (arr) => {
-            if (arr.length < 3 || typeof arr[0] !== 'object' || arr[0] === null)
+            if (arr.length < 2 || typeof arr[0] !== 'object' || arr[0] === null)
                 return 0;
             // Check consistency of first few items
             const firstItem = arr[0];
@@ -67,7 +67,9 @@ class Analyzer {
                     keysLen += key.length;
                 }
                 const perItemOverhead = keysLen + (keyCount * 2); // quotes + colon approx
-                const schemaArrayOverhead = keysLen + (keyCount * 3) + 10; // keys + quotes/commas + "$s":[]
+                // For tokens, schema separation is very efficient. 
+                // The overhead of the schema array is small compared to repeating keys.
+                const schemaArrayOverhead = keysLen + (keyCount * 2) + 5;
                 return Math.max(0, ((arr.length - 1) * perItemOverhead) - schemaArrayOverhead);
             }
             return 0;
@@ -131,21 +133,20 @@ class Analyzer {
         };
         traverse(data, 0);
         // Estimate Abbreviation Savings
-        // We replace AvgKeyLen with ShortKeyLen (approx 2 chars avg for small-med payloads)
-        // Savings = TotalKeys * (AvgKeyLen - 2)
-        // Overhead: We need to send the map! Map output is approx TotalUniqueKeys * (AvgKeyLen + 2)
-        // Since we don't track unique keys efficiently here, let's assume worst case or strict ratio.
-        // A simple heuristic: Savings is roughly half total key length if repetitive.
-        // Let's be more precise:
-        const avgKeyLen = totalKeysCount > 0 ? totalKeyLength / totalKeysCount : 0;
-        const estimatedShortKeyLen = 2.5; // 'a', 'b', ... 'aa'
+        // For LLM tokens, shortening keys is often a net LOSS because:
+        // 1. Common keys (metadata, id, role) are already 1 token.
+        // 2. Short keys (a, b, c) are also 1 token.
+        // 3. The mapping table 'm' adds significant token overhead.
+        // We use a much more conservative byte-per-key saving (e.g. 1.5 bytes instead of avgKeyLen - 2)
+        const tokenAwareSavingsPerKey = 1.5;
         // Rough estimate of unique keys: usually much smaller than total keys for compressed data.
         // Let's assume 20% distinct keys for a "compressible" workload.
-        const estimatedMapOverhead = (totalKeysCount * 0.2) * (avgKeyLen + 3);
-        const rawAbbrevSavings = totalKeysCount * (avgKeyLen - estimatedShortKeyLen);
-        const abbrevMetadataTax = 40; // { m: {}, d: } overhead
+        const avgKeyLen = totalKeysCount > 0 ? totalKeyLength / totalKeysCount : 0;
+        const estimatedMapOverhead = (totalKeysCount * 0.2) * (avgKeyLen + 5);
+        const rawAbbrevSavings = totalKeysCount * tokenAwareSavingsPerKey;
+        const abbrevMetadataTax = 60; // Increased tax for { m: {}, d: } wrapper tokens
         const estimatedAbbrevSavings = Math.max(0, rawAbbrevSavings - estimatedMapOverhead - abbrevMetadataTax);
-        const schemaMetadataTax = 30; // { $s: [], $d: [] } overhead
+        const schemaMetadataTax = 20; // Reduced tax for { $s: [], $d: [] } as it's more token-friendly
         const finalSchemaSavings = Math.max(0, schemaSavings - schemaMetadataTax);
         return {
             totalBytes,
