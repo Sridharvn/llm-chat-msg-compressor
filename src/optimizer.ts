@@ -53,9 +53,9 @@ export class Optimizer {
             // 2. Smart Strategy Selection
             // Compare estimated savings to pick the winner.
 
-            // Prefer SchemaSeparation if it saves MORE than AbbreviatedKeys (with a slight buffer for safety)
-            // Schema Separation is "riskier" structure-wise (arrays vs maps), so we want it to be worth it.
-            if (metrics.estimatedSchemaSavings > metrics.estimatedAbbrevSavings * 1.1) {
+            // Prefer SchemaSeparation if it saves anything significant.
+            // It is generally much better for LLM tokens than Abbreviated Keys.
+            if (metrics.estimatedSchemaSavings > 50 || metrics.estimatedSchemaSavings > metrics.estimatedAbbrevSavings) {
                 result = this.schemaStrat.compress(data);
             } else if (aggressive) {
                 // 3. Fallback to UltraCompact if aggressive is set
