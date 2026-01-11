@@ -54,6 +54,26 @@ export class AbbreviatedKeysStrategy implements CompressionStrategy {
   name = "abbreviated-keys";
 
   compress(data: any): any {
+    // First pass: collect key frequencies so we can decide what to abbreviate
+    const freq = new Map<string, number>();
+    const stackScan: any[] = [data];
+    const visitedScan = new WeakSet();
+    while (stackScan.length > 0) {
+      const node = stackScan.pop();
+      if (!node || typeof node !== "object") continue;
+      if (visitedScan.has(node)) continue;
+      visitedScan.add(node);
+
+      if (Array.isArray(node)) {
+        for (let i = 0; i < node.length; i++) stackScan.push(node[i]);
+      } else {
+        for (const k of Object.keys(node)) {
+          freq.set(k, (freq.get(k) || 0) + 1);
+          stackScan.push(node[k]);
+        }
+      }
+    }
+
     const keyMap = new Map<string, string>();
     let counter = 0;
 
@@ -64,6 +84,14 @@ export class AbbreviatedKeysStrategy implements CompressionStrategy {
         keyMap.set(key, shortKey);
       }
       return shortKey;
+    };
+
+    const dict = (AbbreviatedKeysStrategy as any).DICT || {};
+    const shouldAbbreviate = (key: string) => {
+      if (key in dict) return true;
+      const kLen = key.length;
+      const kFreq = freq.get(key) || 0;
+      return kLen > 4 || kFreq > 2;
     };
 
     // Iterative transform to avoid recursion
@@ -93,7 +121,12 @@ export class AbbreviatedKeysStrategy implements CompressionStrategy {
         if (Array.isArray(src)) {
           for (let i = 0; i < src.length; i++) {
             const val = src[i];
-            if (val === null || typeof val !== "object") {
+            // Treat non-plain objects (Date, RegExp, etc.) as atomic values
+            if (
+              val === null ||
+              typeof val !== "object" ||
+              !isPlainObject(val)
+            ) {
               dst[i] = val;
             } else {
               dst[i] = Array.isArray(val) ? new Array(val.length) : {};
@@ -104,18 +137,28 @@ export class AbbreviatedKeysStrategy implements CompressionStrategy {
           const keys = Object.keys(src);
           for (let i = 0; i < keys.length; i++) {
             const k = keys[i];
-            const short = getShortKey(k);
             const val = src[k];
-            // Treat non-plain objects (Date, RegExp, etc.) as atomic values
+
+            // Choose the target key: static dict -> static token, else maybe dynamic short key, else original
+            let targetKey: string;
+            if (k in dict) {
+              targetKey = dict[k];
+            } else if (shouldAbbreviate(k)) {
+              targetKey = getShortKey(k);
+            } else {
+              targetKey = k;
+            }
+
+            // Assign value
             if (
               val === null ||
               typeof val !== "object" ||
               !isPlainObject(val)
             ) {
-              dst[short] = val;
+              dst[targetKey] = val;
             } else {
-              dst[short] = Array.isArray(val) ? new Array(val.length) : {};
-              stack.push({ src: val, dst: dst[short] });
+              dst[targetKey] = Array.isArray(val) ? new Array(val.length) : {};
+              stack.push({ src: val, dst: dst[targetKey] });
             }
           }
         }
@@ -139,6 +182,14 @@ export class AbbreviatedKeysStrategy implements CompressionStrategy {
       if (Object.prototype.hasOwnProperty.call(pkg.m, k)) {
         reverseMap.set(pkg.m[k], k);
       }
+    }
+
+    // static reverse mapping (safe if no static dict provided)
+    const staticReverse: Record<string, string> = {};
+    const dict = (AbbreviatedKeysStrategy as any).DICT || {};
+    for (const orig in dict) {
+      const short = dict[orig];
+      staticReverse[short] = orig;
     }
 
     const transform = (root: any): any => {
@@ -170,7 +221,8 @@ export class AbbreviatedKeysStrategy implements CompressionStrategy {
           const keys = Object.keys(src);
           for (let i = 0; i < keys.length; i++) {
             const k = keys[i];
-            const orig = reverseMap.get(k) || k;
+            let orig = reverseMap.get(k) || k;
+            if (orig === k && staticReverse[k]) orig = staticReverse[k];
             const val = src[k];
             if (val === null || typeof val !== "object") {
               dst[orig] = val;
@@ -790,6 +842,14 @@ export class UltraCompactStrategy implements CompressionStrategy {
       }
     }
 
+    // static reverse mapping (use AbbreviatedKeysStrategy's DICT if present)
+    const staticReverse: Record<string, string> = {};
+    const dict = (AbbreviatedKeysStrategy as any).DICT || {};
+    for (const orig in dict) {
+      const short = dict[orig];
+      staticReverse[short] = orig;
+    }
+
     const transform = (root: any): any => {
       if (root === null || typeof root !== "object") return root;
 
@@ -819,7 +879,9 @@ export class UltraCompactStrategy implements CompressionStrategy {
           const keys = Object.keys(src);
           for (let i = 0; i < keys.length; i++) {
             const k = keys[i];
-            const originalKey = reverseMap.get(k) || k;
+            let originalKey = reverseMap.get(k) || k;
+            if (originalKey === k && staticReverse[k])
+              originalKey = staticReverse[k];
             const val = src[k];
             if (val === null || typeof val !== "object") {
               dst[originalKey] = val;

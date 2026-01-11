@@ -13,6 +13,7 @@ Intelligent JSON optimizer for LLM APIs. Automatically reduces token usage by se
 - **🧠 Intelligent**: Analyzes payload structure and token impact to pick the best strategy
 - **⚡ Fast**: Iterative traversals and selective passes avoid stack overflows and long pauses
 - **📉 Effective**: Strategies like Schema Separation and Structural Deduplication can reduce tokens significantly for common LLM payloads
+- **🗂️ Static Dictionary**: Built-in static dictionary for common LLM keys and a fallback mechanism ensure mapping overhead is minimized for common payloads
 - **✅ Safe-by-default**: Keeps types & semantics intact unless `unsafe` mode is explicitly enabled
 - **🔍 Token-aware validation**: Uses `js-tiktoken` to ensure real token savings
 
@@ -42,7 +43,7 @@ const restored = restore(optimized);
 - **Minify** — No-op JSON minification (used for small payloads)
 - **Structural Deduplication** — Detects repeated large subtrees and replaces them with a root-level registry (`$r`) referencing shared content. Extremely effective for repeated boilerplate, tool outputs, or large repeated payloads.
 - **Schema Separation** — Converts arrays of uniform objects into `{ $s: [...keys], $d: [[values], ...] }` for compactness
-- **Abbreviated Keys** — Maps frequently used long keys to short single-letter identifiers and includes a small map `m` when beneficial
+- **Abbreviated Keys** — Maps frequently used long keys to short single-letter identifiers and includes a small map `m` when beneficial. Uses a built-in **static dictionary** and a heuristic (key length > 4 or frequency > 2) to avoid adding mapping overhead unnecessarily.
 - **Ultra Compact** — Aggressive key mapping plus optional boolean-to-int conversion (opt-in `unsafe` mode)
 
 ---
@@ -65,10 +66,20 @@ To control latency vs compression trade-offs, use `fastMode` and `fastSize`:
 - `fastMode: true` (default) will skip expensive dedup passes for small payloads
 - `fastSize` (bytes) controls what "small" means (default 512)
 
-Example:
+Short practical example:
 
 ```ts
-optimize(data, { fastMode: true, fastSize: 1024 });
+// small payload: fastMode skips expensive dedup/schema passes for lower latency
+const small = { messages: [{ role: "user", content: "Hi" }] };
+const quick = optimize(small, { fastMode: true, fastSize: 1024 });
+
+// larger payload or when you want maximum compression: disable fastMode
+const repeated = { item: { long: "x".repeat(300) } };
+const large = { items: [repeated, { other: 1 }, repeated, repeated] };
+const thorough = optimize(large, { fastMode: false });
+
+// In practice: `quick` will typically compress faster with fewer heavy passes,
+// while `thorough` may apply deduplication/schema passes and yield better byte/token savings.
 ```
 
 ---
@@ -107,6 +118,14 @@ expect(restored).toEqual(payload);
 - `{ $s, $d }` (Schema Separation)
 - `{ $r, d }` (Structural Deduplication)
 
+`restore()` also consults the **static dictionary** (used by `AbbreviatedKeysStrategy`) as a fallback when a dynamic map `m` isn't present or doesn't contain a key. You can override or extend the static dictionary at runtime if you need domain-specific mappings:
+
+```ts
+import { AbbreviatedKeysStrategy } from "llm-chat-msg-compressor";
+(AbbreviatedKeysStrategy as any).DICT = { auth: "a", message: "m" };
+// Now decompression will map 'a' -> 'auth' and 'm' -> 'message' even if pkg.m is empty
+```
+
 So you can safely call `restore()` on payloads you received from an LLM.
 
 ---
@@ -117,7 +136,7 @@ Planned features include:
 
 - YAML serialization pass for extra token savings in some contexts
 - Data refinement (optional lossy rounding/pruning for floats and empty fields)
-- Custom static dictionaries for domain-specific payloads
+- (Done) Custom static dictionaries for domain-specific payloads — can be provided via `AbbreviatedKeysStrategy.DICT` or left to the built-in default.
 
 ---
 
