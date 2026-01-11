@@ -34,6 +34,17 @@ describe('Edge Cases', () => {
         expect(restore(result)).toEqual(data);
     });
 
+    it('should handle very deep nesting without stack overflow', () => {
+        const depth = 5000;
+        let cur: any = { leaf: 'end' };
+        for (let i = 0; i < depth; i++) {
+            cur = { ['l' + i]: cur };
+        }
+        const result = optimize(cur);
+        const restored = restore(result);
+        expect(restored).toEqual(cur);
+    });
+
     it('should handle arrays with mixed types', () => {
         const data = [1, 'string', true, null, { obj: true }];
         const result = optimize(data);

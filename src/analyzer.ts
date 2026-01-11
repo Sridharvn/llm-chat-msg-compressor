@@ -90,7 +90,20 @@ export class Analyzer {
             return 0;
         };
 
-        const traverse = (obj: any, currentDepth: number) => {
+        // Iterative stack-based traversal to avoid call stack overflows
+        const stack: Array<{ node: any; depth: number }> = [{ node: data, depth: 0 }];
+        const visited = new WeakSet();
+        while (stack.length > 0) {
+            const frame = stack.pop()!;
+            const obj = frame.node;
+            const currentDepth = frame.depth;
+
+            // Cycle detection
+            if (obj && typeof obj === 'object') {
+                if (visited.has(obj)) throw new Error('Circular reference detected');
+                visited.add(obj);
+            }
+
             depth = Math.max(depth, currentDepth);
 
             if (Array.isArray(obj)) {
@@ -102,23 +115,27 @@ export class Analyzer {
                 // Check if this specific array offers schema savings
                 schemaSavings += calculateArraySchemaSavings(obj);
 
-                for (let i = 0; i < obj.length; i++) {
-                    traverse(obj[i], currentDepth + 1);
+                // Push children onto stack
+                for (let i = obj.length - 1; i >= 0; i--) {
+                    stack.push({ node: obj[i], depth: currentDepth + 1 });
                 }
             } else if (isPlainObject(obj)) {
                 objectCount++;
                 totalBytes += 2; // {}
-                
+
                 let first = true;
-                for (const key in obj) {
+                const keys = Object.keys(obj);
+                // Iterate keys in reverse to emulate recursive order with stack
+                for (let i = keys.length - 1; i >= 0; i--) {
+                    const key = keys[i];
                     if (Object.prototype.hasOwnProperty.call(obj, key)) {
                         if (!first) totalBytes += 1; // comma
                         first = false;
-                        
+
                         totalKeysCount++;
                         totalKeyLength += key.length;
                         totalBytes += key.length + 3; // "key":
-                        traverse(obj[key], currentDepth + 1);
+                        stack.push({ node: obj[key], depth: currentDepth + 1 });
                     }
                 }
             } else {
@@ -141,9 +158,7 @@ export class Analyzer {
                     }
                 }
             }
-        };
-
-        traverse(data, 0);
+        }
 
         // Estimate Abbreviation Savings
         // For LLM tokens, shortening keys is often a net LOSS because:

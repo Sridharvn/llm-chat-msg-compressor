@@ -73,7 +73,7 @@ describe('Comprehensive Tests', () => {
 
             const strategy = new SchemaDataSeparationStrategy();
             const compressed = strategy.compress(data);
-            
+
             // Verify it's actually compressed at multiple levels
             // Top level 'groups' should be schema-separated
             expect(compressed.groups).toHaveProperty('$s');
