@@ -8,91 +8,125 @@ Intelligent JSON optimizer for LLM APIs. Automatically reduces token usage by se
 
 [**Live Playground**](https://sridharvn.github.io/llm-compressor-ui/)
 
-## Features
+## Highlights
 
-- **🧠 Intelligent**: Analyzes payload structure to pick the best strategy
-- **⚡ High Performance**: Optimized for low-latency with single-pass analysis
-- **📉 Efficient**: Saves 10-40% input tokens on average
-- **✅ Safe**: Full restoration of original data (semantic equality)
-- **🔌 Easy**: Simple `optimize()` and `restore()` API
-- **🔍 Token Aware**: Validates actual token savings using `js-tiktoken`
+- **🧠 Intelligent**: Analyzes payload structure and token impact to pick the best strategy
+- **⚡ Fast**: Iterative traversals and selective passes avoid stack overflows and long pauses
+- **📉 Effective**: Strategies like Schema Separation and Structural Deduplication can reduce tokens significantly for common LLM payloads
+- **✅ Safe-by-default**: Keeps types & semantics intact unless `unsafe` mode is explicitly enabled
+- **🔍 Token-aware validation**: Uses `js-tiktoken` to ensure real token savings
 
-## Installation
+---
+
+## Quickstart
 
 ```bash
 npm install llm-chat-msg-compressor
 ```
 
-## Usage
-
-```typescript
+```ts
 import { optimize, restore } from "llm-chat-msg-compressor";
-import OpenAI from "openai";
 
-const data = {
-  users: [
-    { id: 1, name: "Alice", role: "admin" },
-    { id: 2, name: "Bob", role: "viewer" },
-    // ... 100 more users
-  ],
-};
+const data = { messages: [{ role: "user", content: "Hello" } /* ... */] };
 
-// 1. Optimize before sending to LLM
-const optimizedData = optimize(data);
-
-// 2. Send to LLM
-const completion = await openai.chat.completions.create({
-  messages: [{ role: "user", content: JSON.stringify(optimizedData) }],
-  model: "gpt-4",
-});
-
-// 3. (Optional) Restore if you need to process response in same format
-// const original = restore(responseFromLLM);
+const optimized = optimize(data);
+// send optimized to your LLM
+// when receiving back a compressed payload, you can restore it
+const restored = restore(optimized);
 ```
 
-## Strategies
+---
 
-The library **automatically selects** the best strategy using a smart scoring algorithm:
+## Strategies (Auto-selected)
 
-1. **Minify**: Standard JSON serialization (for small payloads < 1024b)
-2. **Schema Separation**: Extracts keys into a schema and converts objects to value arrays (best for lists of uniform objects).
-3. **Abbreviated Keys**: Maps long keys to short identifiers (best for mixed or nested payloads).
-4. **Ultra Compact**: Aggressive key mapping and optional type-level optimizations.
+- **Minify** — No-op JSON minification (used for small payloads)
+- **Structural Deduplication** — Detects repeated large subtrees and replaces them with a root-level registry (`$r`) referencing shared content. Extremely effective for repeated boilerplate, tool outputs, or large repeated payloads.
+- **Schema Separation** — Converts arrays of uniform objects into `{ $s: [...keys], $d: [[values], ...] }` for compactness
+- **Abbreviated Keys** — Maps frequently used long keys to short single-letter identifiers and includes a small map `m` when beneficial
+- **Ultra Compact** — Aggressive key mapping plus optional boolean-to-int conversion (opt-in `unsafe` mode)
 
-## Options
+---
 
-```typescript
+## Optimizer Pipeline
+
+`optimize()` now runs a speculative multi-pass pipeline by default:
+
+1. Deduplication (lightweight hash-based detection)
+2. Schema Separation
+3. Abbreviated Keys
+4. Optional UltraCompact (if `aggressive: true`)
+
+Each pass is applied only if it yields a net token or byte improvement (speculative acceptance). This produces compound benefits while ensuring we never increase token usage if `validateTokenSavings` is on.
+
+### Fast Mode
+
+To control latency vs compression trade-offs, use `fastMode` and `fastSize`:
+
+- `fastMode: true` (default) will skip expensive dedup passes for small payloads
+- `fastSize` (bytes) controls what "small" means (default 512)
+
+Example:
+
+```ts
+optimize(data, { fastMode: true, fastSize: 1024 });
+```
+
+---
+
+## Options & Examples
+
+```ts
 optimize(data, {
-  aggressive: false, // Enable UltraCompact strategy (default: false)
-  unsafe: false, // Implement lossy optimizations like bool->int (default: false)
-  thresholdBytes: 1024, // Minimum size to attempt compression (default: 1024)
-  validateTokenSavings: true, // Ensure output is actually smaller in tokens (default: true)
-  tokenizer: "cl100k_base", // Encoding or model name for token counting
+  aggressive: false, // try UltraCompact only when requested
+  unsafe: false, // if true, allows bool -> 1/0 (lossy) to reduce tokens
+  thresholdBytes: 1024, // only consider multi-pass if payload larger than this
+  validateTokenSavings: true, // require token savings to accept transformations
+  fastMode: true, // skip expensive passes for small payloads
+  fastSize: 512, // threshold for fastMode
 });
 ```
 
-### Token Validation
+Example (Structural Deduplication):
 
-By default, `optimize()` will count the tokens of both the input and the compressed output. If the "compressed" version actually uses more tokens (which can happen with very small payloads due to mapping overhead), it will return the **original data**. This ensures you never pay more for "optimized" messages.
+```ts
+const repeated = { long: "x".repeat(200), meta: { a: 1 } };
+const payload = { items: [repeated, { other: 1 }, repeated, repeated] };
+const optimized = optimize(payload, { thresholdBytes: 0 });
+// optimized may look like: { $r: { r1: { long: 'xxx', meta: {...} } }, d: { items: [{ $ref: 'r1'}, { other: 1}, {$ref:'r1'}, {$ref:'r1'}] } }
+const restored = restore(optimized);
+expect(restored).toEqual(payload);
+```
 
-### Safety & Types
+---
 
-By default, the library is **Safe-by-Default**. It preserves all data types (including booleans), ensuring that downstream code works without modification.
+## Decompression / `restore()`
 
-If you need maximum compression and your LLM can handle `1`/`0` instead of `true`/`false`, you can enable `unsafe: true`.
+`restore()` auto-detects compressed forms and handles:
 
-## Performance
+- `{ m, d }` (Abbreviated / Ultra Compact)
+- `{ $s, $d }` (Schema Separation)
+- `{ $r, d }` (Structural Deduplication)
 
-The library is designed for high-throughput environments:
+So you can safely call `restore()` on payloads you received from an LLM.
 
-- **Zero-Stringify Analysis**: Estimates payload size during traversal to avoid memory spikes.
-- **Lazy Detection**: Decompression auto-detects strategies using targeted marker searches.
-- **Memory Efficient**: Uses optimized loops and reuses strategy instances to minimize garbage collection.
+---
+
+## Future Work
+
+Planned features include:
+
+- YAML serialization pass for extra token savings in some contexts
+- Data refinement (optional lossy rounding/pruning for floats and empty fields)
+- Custom static dictionaries for domain-specific payloads
+
+---
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for our code of conduct.
+Contributions welcome — please open issues or PRs. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see `LICENSE`
