@@ -48,6 +48,12 @@ export function restore(data: any): any {
     return strat.decompress(data);
   }
 
+  // Detect YAML serialized form
+  if (data && data.$y && typeof data.$y === "string") {
+    const { YamlStrategy } = require("./yamlStrategy");
+    return new YamlStrategy().decompress(data);
+  }
+
   // Default: return as is
   return data;
 }

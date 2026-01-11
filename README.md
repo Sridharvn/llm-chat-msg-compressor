@@ -94,6 +94,7 @@ optimize(data, {
   validateTokenSavings: true, // require token savings to accept transformations
   fastMode: true, // skip expensive passes for small payloads
   fastSize: 512, // threshold for fastMode
+  yamlEnabled: true, // toggle final YAML pass (model/tokenizer dependent)
 });
 ```
 
@@ -117,6 +118,7 @@ expect(restored).toEqual(payload);
 - `{ m, d }` (Abbreviated / Ultra Compact)
 - `{ $s, $d }` (Schema Separation)
 - `{ $r, d }` (Structural Deduplication)
+- `{ $y }` (YAML serialization)
 
 `restore()` also consults the **static dictionary** (used by `AbbreviatedKeysStrategy`) as a fallback when a dynamic map `m` isn't present or doesn't contain a key. You can override or extend the static dictionary at runtime if you need domain-specific mappings:
 
@@ -130,13 +132,19 @@ So you can safely call `restore()` on payloads you received from an LLM.
 
 ---
 
-## Future Work
+## Future Work & Notes
 
-Planned features include:
+Status:
 
-- YAML serialization pass for extra token savings in some contexts
-- Data refinement (optional lossy rounding/pruning for floats and empty fields)
-- (Done) Custom static dictionaries for domain-specific payloads — can be provided via `AbbreviatedKeysStrategy.DICT` or left to the built-in default.
+- **YAML serialization pass**: implemented and available as a speculative final pass (toggle with `yamlEnabled`). Model/tokenizer dependent; validate with `validateTokenSavings`.
+- **Data refinement**: implemented as an **opt-in** preprocessor (`dataRefinement` option on `optimize`) with configurable `precision` and `pruneEmpty`/`pruneNull` toggles.
+- **Custom static dictionaries**: supported via `AbbreviatedKeysStrategy.DICT` (done).
+
+Planned items:
+
+- Performance benchmark scripts comparing JSON vs YAML vs combined approaches across tokenizers (see `scripts/benchmark.ts` and run with `npm run bench` to compare in your environment)
+- Allow user-provided domain dictionaries via `optimize()` options (convenience wrapper)
+- Additional lossy refinement heuristics (configurable)
 
 ---
 

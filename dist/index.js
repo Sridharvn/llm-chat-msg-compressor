@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UltraCompactStrategy = exports.SchemaDataSeparationStrategy = exports.AbbreviatedKeysStrategy = exports.Analyzer = exports.Optimizer = void 0;
+exports.UltraCompactStrategy = exports.StructuralDeduplicationStrategy = exports.SchemaDataSeparationStrategy = exports.AbbreviatedKeysStrategy = exports.Analyzer = exports.Optimizer = void 0;
 exports.optimize = optimize;
 exports.restore = restore;
 const optimizer_1 = require("./optimizer");
 const strategies_1 = require("./strategies");
 Object.defineProperty(exports, "AbbreviatedKeysStrategy", { enumerable: true, get: function () { return strategies_1.AbbreviatedKeysStrategy; } });
 Object.defineProperty(exports, "SchemaDataSeparationStrategy", { enumerable: true, get: function () { return strategies_1.SchemaDataSeparationStrategy; } });
+Object.defineProperty(exports, "StructuralDeduplicationStrategy", { enumerable: true, get: function () { return strategies_1.StructuralDeduplicationStrategy; } });
 Object.defineProperty(exports, "UltraCompactStrategy", { enumerable: true, get: function () { return strategies_1.UltraCompactStrategy; } });
 // Singleton instance for easy usage
 const defaultOptimizer = new optimizer_1.Optimizer();
@@ -37,11 +38,21 @@ function restore(data) {
         const strat = new strategies_1.SchemaDataSeparationStrategy();
         return strat.decompress(data);
     }
+    // Detect Structural Deduplication format
+    if (data && data.$r && data.d !== undefined) {
+        const strat = new strategies_1.StructuralDeduplicationStrategy();
+        return strat.decompress(data);
+    }
+    // Detect YAML serialized form
+    if (data && data.$y && typeof data.$y === "string") {
+        const { YamlStrategy } = require("./yamlStrategy");
+        return new YamlStrategy().decompress(data);
+    }
     // Default: return as is
     return data;
 }
 function hasSchemaMarker(obj) {
-    if (!obj || typeof obj !== 'object')
+    if (!obj || typeof obj !== "object")
         return false;
     if (Array.isArray(obj)) {
         for (let i = 0; i < obj.length; i++) {
@@ -50,7 +61,7 @@ function hasSchemaMarker(obj) {
         }
         return false;
     }
-    if ('$s' in obj && '$d' in obj)
+    if ("$s" in obj && "$d" in obj)
         return true;
     for (const k in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, k)) {

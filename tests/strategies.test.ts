@@ -41,6 +41,28 @@ describe("Compression Strategies", () => {
       expect(restored).toEqual({ auth: "tok", message: "hello" });
       delete (AbbreviatedKeysStrategy as any).DICT;
     });
+
+    it("should use built-in DICT keys during compress without adding to dynamic map", () => {
+      // ensure the default DICT is present
+      const dict = (AbbreviatedKeysStrategy as any).DICT || {};
+      const keys = Object.keys(dict);
+      // build a payload containing only DICT keys
+      const payload: any = {};
+      for (const k of keys) payload[k] = k;
+
+      const compressed = strategy.compress(payload);
+      // compressed.d should contain only short keys, and compressed.m should be empty
+      expect(Object.keys(compressed.m).length).toBe(0);
+      // verify every DICT short key is present in compressed.d
+      for (const k of keys) {
+        const short = dict[k];
+        expect(compressed.d).toHaveProperty(short);
+      }
+
+      // And round-trip restores original payload
+      const restored = strategy.decompress(compressed);
+      expect(restored).toEqual(payload);
+    });
   });
 
   describe("SchemaDataSeparationStrategy", () => {

@@ -24,6 +24,7 @@ export declare const minify: CompressionStrategy;
  */
 export declare class AbbreviatedKeysStrategy implements CompressionStrategy {
     name: string;
+    static DICT: Record<string, string>;
     compress(data: any): any;
     decompress(pkg: any): any;
 }
@@ -35,6 +36,20 @@ export declare class SchemaDataSeparationStrategy implements CompressionStrategy
     name: string;
     compress(data: any): any;
     decompress(data: any): any;
+}
+/**
+ * Strategy 4: Structural Deduplication
+ * Detects repeated sub-objects/arrays and replaces them with references stored in a root-level registry ($r).
+ */
+export declare class StructuralDeduplicationStrategy implements CompressionStrategy {
+    private options;
+    name: string;
+    constructor(options?: {
+        minSizeBytes?: number;
+    });
+    private canonicalStringify;
+    compress(data: any): any;
+    decompress(pkg: any): any;
 }
 /**
  * Strategy 4: Ultra Compact (Collision Safe)

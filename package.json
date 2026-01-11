@@ -1,55 +1,57 @@
 {
-    "name": "llm-chat-msg-compressor",
-    "version": "1.0.7",
-    "description": "Intelligent JSON compression for LLM API optimization",
-    "main": "dist/index.js",
-    "types": "dist/index.d.ts",
-    "files": [
-        "dist",
-        "README.md",
-        "LICENSE"
-    ],
-    "scripts": {
-        "build": "tsc",
-        "test": "jest",
-        "prepare": "npm run build",
-        "prepublishOnly": "npm test"
-    },
-    "keywords": [
-        "llm",
-        "openai",
-        "json",
-        "compression",
-        "optimization",
-        "tokens",
-        "chat",
-        "gpt",
-        "api",
-        "completions",
-        "messages",
-        "tokenization"
-    ],
-    "author": "Sridharvn",
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/Sridharvn/llm-chat-msg-compressor.git"
-    },
-    "bugs": {
-        "url": "https://github.com/Sridharvn/llm-chat-msg-compressor/issues"
-    },
-    "homepage": "https://sridharvn.github.io/llm-compressor-ui/",
-    "engines": {
-        "node": ">=18.0.0"
-    },
-    "devDependencies": {
-        "@types/jest": "^30.0.0",
-        "jest": "^30.2.0",
-        "ts-jest": "^29.4.6",
-        "ts-node": "^10.9.2",
-        "typescript": "^5.0.0"
-    },
-    "dependencies": {
-        "js-tiktoken": "^1.0.21"
-    }
+  "name": "llm-chat-msg-compressor",
+  "version": "1.0.8",
+  "description": "Intelligent JSON compression for LLM API optimization",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm test",
+    "bench": "ts-node scripts/benchmark.ts"
+  },
+  "keywords": [
+    "llm",
+    "openai",
+    "json",
+    "compression",
+    "optimization",
+    "tokens",
+    "chat",
+    "gpt",
+    "api",
+    "completions",
+    "messages",
+    "tokenization"
+  ],
+  "author": "Sridharvn",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sridharvn/llm-chat-msg-compressor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Sridharvn/llm-chat-msg-compressor/issues"
+  },
+  "homepage": "https://sridharvn.github.io/llm-compressor-ui/",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "js-tiktoken": "^1.0.21",
+    "js-yaml": "^4.1.1"
+  }
 }

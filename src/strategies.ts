@@ -53,6 +53,38 @@ export const minify: CompressionStrategy = {
 export class AbbreviatedKeysStrategy implements CompressionStrategy {
   name = "abbreviated-keys";
 
+  // Default static dictionary for common LLM payload keys (single-letter or short tokens)
+  static DICT: Record<string, string> = {
+    role: "a",
+    content: "b",
+    message: "c",
+    messages: "d",
+    user: "e",
+    assistant: "f",
+    system: "g",
+    name: "h",
+    id: "i",
+    timestamp: "j",
+    source: "k",
+    meta: "l",
+    text: "m",
+    input: "n",
+    output: "o",
+    reply: "p",
+    context: "q",
+    description: "r",
+    type: "s",
+    error: "t",
+    status: "u",
+    result: "v",
+    value: "w",
+    items: "x",
+    data: "y",
+    payload: "z",
+    options: "aa",
+    params: "ab",
+  };
+
   compress(data: any): any {
     // First pass: collect key frequencies so we can decide what to abbreviate
     const freq = new Map<string, number>();
